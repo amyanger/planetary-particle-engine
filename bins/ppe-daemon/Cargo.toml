@@ -1,0 +1,27 @@
+[package]
+name = "ppe-daemon"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "ppe-daemon"
+path = "src/main.rs"
+
+[dependencies]
+ppe-core.workspace = true
+ppe-can.workspace = true
+ppe-hal.workspace = true
+ppe-state.workspace = true
+ppe-scheduler.workspace = true
+ppe-subsystems.workspace = true
+ppe-diagnostics.workspace = true
+ppe-sim.workspace = true
+ppe-dashboard.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+crossbeam-channel.workspace = true
+crossterm.workspace = true
+ratatui.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true

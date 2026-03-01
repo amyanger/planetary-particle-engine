@@ -1,0 +1,8 @@
+[package]
+name = "ppe-core"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+thiserror.workspace = true
+serde.workspace = true

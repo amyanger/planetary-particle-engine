@@ -1,0 +1,11 @@
+[package]
+name = "ppe-diagnostics"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+ppe-core.workspace = true
+ppe-can.workspace = true
+serde.workspace = true
+tracing.workspace = true
+thiserror.workspace = true

@@ -1,0 +1,26 @@
+[package]
+name = "ppe-integration-tests"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[[test]]
+name = "can_bus_test"
+path = "can_bus_test.rs"
+
+[[test]]
+name = "bms_test"
+path = "bms_test.rs"
+
+[[test]]
+name = "scheduler_test"
+path = "scheduler_test.rs"
+
+[dev-dependencies]
+ppe-core.workspace = true
+ppe-can.workspace = true
+ppe-hal.workspace = true
+ppe-state.workspace = true
+ppe-subsystems.workspace = true
+ppe-scheduler.workspace = true
+tokio.workspace = true

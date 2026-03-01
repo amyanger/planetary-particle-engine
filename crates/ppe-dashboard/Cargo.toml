@@ -1,0 +1,13 @@
+[package]
+name = "ppe-dashboard"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+ppe-core.workspace = true
+ppe-can.workspace = true
+ppe-state.workspace = true
+ppe-diagnostics.workspace = true
+ppe-sim.workspace = true
+ratatui.workspace = true
+crossterm.workspace = true

@@ -1,0 +1,49 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/ppe-core",
+    "crates/ppe-can",
+    "crates/ppe-hal",
+    "crates/ppe-state",
+    "crates/ppe-scheduler",
+    "crates/ppe-subsystems",
+    "crates/ppe-diagnostics",
+    "crates/ppe-sim",
+    "crates/ppe-dashboard",
+    "bins/ppe-daemon",
+    "bins/ppe-diag",
+    "tests/integration",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[workspace.dependencies]
+# Internal crates
+ppe-core = { path = "crates/ppe-core" }
+ppe-can = { path = "crates/ppe-can" }
+ppe-hal = { path = "crates/ppe-hal" }
+ppe-state = { path = "crates/ppe-state" }
+ppe-scheduler = { path = "crates/ppe-scheduler" }
+ppe-subsystems = { path = "crates/ppe-subsystems" }
+ppe-diagnostics = { path = "crates/ppe-diagnostics" }
+ppe-sim = { path = "crates/ppe-sim" }
+ppe-dashboard = { path = "crates/ppe-dashboard" }
+
+# External dependencies
+tokio = { version = "1", features = ["full"] }
+crossbeam-channel = "0.5"
+serde = { version = "1", features = ["derive"] }
+postcard = { version = "1", features = ["alloc"] }
+heapless = { version = "0.8", features = ["serde"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+ratatui = "0.29"
+crossterm = "0.28"
+clap = { version = "4", features = ["derive"] }
+proptest = "1"
+rand = "0.8"
+thiserror = "2"
+anyhow = "1"

@@ -1,0 +1,15 @@
+[package]
+name = "ppe-diag"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "ppe-diag"
+path = "src/main.rs"
+
+[dependencies]
+ppe-core.workspace = true
+ppe-can.workspace = true
+ppe-diagnostics.workspace = true
+anyhow.workspace = true
+clap.workspace = true

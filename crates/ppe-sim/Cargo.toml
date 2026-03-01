@@ -1,0 +1,10 @@
+[package]
+name = "ppe-sim"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+ppe-core.workspace = true
+ppe-hal.workspace = true
+serde.workspace = true
+tracing.workspace = true

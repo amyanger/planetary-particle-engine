@@ -1,0 +1,13 @@
+[package]
+name = "ppe-subsystems"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+ppe-core.workspace = true
+ppe-can.workspace = true
+ppe-hal.workspace = true
+ppe-state.workspace = true
+serde.workspace = true
+tracing.workspace = true
+thiserror.workspace = true

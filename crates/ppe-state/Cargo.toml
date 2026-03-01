@@ -1,0 +1,9 @@
+[package]
+name = "ppe-state"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+ppe-core.workspace = true
+serde.workspace = true
+tracing.workspace = true
