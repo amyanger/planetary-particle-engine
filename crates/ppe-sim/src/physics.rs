@@ -22,6 +22,7 @@ pub struct VehiclePhysicsConfig {
     pub coolant_thermal_mass: f64,   // J/K
     pub radiator_cooling_power: f64, // W/K (ambient delta)
     pub air_density: f64,
+    pub reactor_enabled: bool,
 }
 
 impl Default for VehiclePhysicsConfig {
@@ -44,6 +45,7 @@ impl Default for VehiclePhysicsConfig {
             coolant_thermal_mass: 20000.0,
             radiator_cooling_power: 200.0,
             air_density: 1.225,
+            reactor_enabled: false,
         }
     }
 }
@@ -62,6 +64,11 @@ pub struct PhysicsHandles {
     // Thermal handles
     pub coolant_temp: SensorHandle,
     pub ambient_temp: SensorHandle,
+    // Reactor handles (optional -- only used when reactor is enabled)
+    pub reactor_speed: Option<SensorHandle>,
+    pub reactor_accel: Option<SensorHandle>,
+    pub reactor_drag: Option<SensorHandle>,
+    pub reactor_mass: Option<SensorHandle>,
 }
 
 /// Full vehicle physics simulation.
@@ -82,11 +89,17 @@ pub struct VehiclePhysics {
     battery_current: f64,
     battery_voltage: f64,
     power_kw: f64,
+    // Reactor state (tracked in physics for integration)
+    reactor_enabled: bool,
+    reactor_net_power_kw: f64,
+    prev_speed_mps: f64,
+    last_dt: f64,
 }
 
 impl VehiclePhysics {
     pub fn new(config: VehiclePhysicsConfig) -> Self {
         let voltage = config.battery_nominal_voltage;
+        let reactor_enabled = config.reactor_enabled;
         Self {
             config,
             speed_mps: 0.0,
@@ -101,6 +114,10 @@ impl VehiclePhysics {
             battery_current: 0.0,
             battery_voltage: voltage,
             power_kw: 0.0,
+            reactor_enabled,
+            reactor_net_power_kw: 0.0,
+            prev_speed_mps: 0.0,
+            last_dt: 0.01,
         }
     }
 
@@ -114,6 +131,30 @@ impl VehiclePhysics {
 
     pub fn set_ambient_temp(&mut self, temp: f64) {
         self.ambient_temp_c = temp;
+    }
+
+    pub fn set_reactor_enabled(&mut self, enabled: bool) {
+        self.reactor_enabled = enabled;
+    }
+
+    pub fn set_reactor_power(&mut self, net_power_kw: f64) {
+        self.reactor_net_power_kw = net_power_kw;
+    }
+
+    pub fn reactor_enabled(&self) -> bool {
+        self.reactor_enabled
+    }
+
+    pub fn speed_mps(&self) -> f64 {
+        self.speed_mps
+    }
+
+    pub fn acceleration_mps2(&self) -> f64 {
+        if self.last_dt > 0.0 {
+            (self.speed_mps - self.prev_speed_mps) / self.last_dt
+        } else {
+            0.0
+        }
     }
 
     pub fn speed_kmh(&self) -> f64 {
@@ -140,12 +181,22 @@ impl VehiclePhysics {
         self.power_kw
     }
 
+    pub fn battery_voltage(&self) -> f64 {
+        self.battery_voltage
+    }
+
+    pub fn battery_current(&self) -> f64 {
+        self.battery_current
+    }
+
     /// Advance the simulation by dt.
     pub fn step(&mut self, dt: Duration) {
         let dt_s = dt.as_secs_f64();
         if dt_s <= 0.0 {
             return;
         }
+
+        self.last_dt = dt_s;
 
         // Motor RPM from wheel speed
         self.motor_rpm =
@@ -180,6 +231,9 @@ impl VehiclePhysics {
         let net_force = motor_force - drag_force - rolling_force - brake_force;
         let acceleration = net_force / self.config.mass_kg;
 
+        // Save prev speed for acceleration computation
+        self.prev_speed_mps = self.speed_mps;
+
         // Integrate velocity
         self.speed_mps = (self.speed_mps + acceleration * dt_s).max(0.0);
 
@@ -192,11 +246,24 @@ impl VehiclePhysics {
             mechanical_power * self.config.motor_efficiency // Regenerative braking
         };
 
-        self.battery_current = electrical_power / self.config.battery_nominal_voltage;
+        // When reactor is enabled and producing power, it offsets battery draw.
+        // battery_power_w is the power the battery must supply (negative means charging).
+        let mut battery_power_w = if self.reactor_enabled && self.reactor_net_power_kw > 0.0 {
+            electrical_power - self.reactor_net_power_kw * 1000.0
+        } else {
+            electrical_power
+        };
+
+        // Don't charge the battery beyond full SOC
+        if battery_power_w < 0.0 && self.soc >= 1.0 {
+            battery_power_w = 0.0;
+        }
+
+        self.battery_current = battery_power_w / self.config.battery_nominal_voltage;
         self.battery_voltage = self.config.battery_nominal_voltage
             - self.battery_current * self.config.battery_internal_resistance;
 
-        // SOC depletion
+        // SOC depletion (or charging if battery_current < 0)
         let consumed_ah = self.battery_current * dt_s / 3600.0;
         self.soc = (self.soc - consumed_ah / self.config.battery_capacity_ah).clamp(0.0, 1.0);
 
@@ -242,6 +309,32 @@ impl VehiclePhysics {
         // Thermal sensors
         handles.coolant_temp.set(self.coolant_temp_c);
         handles.ambient_temp.set(self.ambient_temp_c);
+
+        // Reactor sensor data
+        if let Some(ref h) = handles.reactor_speed {
+            h.set(self.speed_mps);
+        }
+        if let Some(ref h) = handles.reactor_accel {
+            let accel = if self.last_dt > 0.0 {
+                (self.speed_mps - self.prev_speed_mps) / self.last_dt
+            } else {
+                0.0
+            };
+            h.set(accel);
+        }
+        if let Some(ref h) = handles.reactor_drag {
+            let drag_force = 0.5
+                * self.config.air_density
+                * self.config.drag_coefficient
+                * self.config.frontal_area_m2
+                * self.speed_mps
+                * self.speed_mps;
+            let rolling_force = self.config.rolling_resistance * self.config.mass_kg * 9.81;
+            h.set(drag_force + rolling_force);
+        }
+        if let Some(ref h) = handles.reactor_mass {
+            h.set(self.config.mass_kg);
+        }
     }
 }
 
@@ -270,6 +363,10 @@ mod tests {
             motor_throttle: h7,
             coolant_temp: h8,
             ambient_temp: h9,
+            reactor_speed: None,
+            reactor_accel: None,
+            reactor_drag: None,
+            reactor_mass: None,
         }
     }
 

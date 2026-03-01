@@ -19,7 +19,8 @@ use ppe_diagnostics::{DtcManager, ObdLiveData, ObdResponder};
 use ppe_sim::{PhysicsHandles, Scenario, ScenarioKind, VehiclePhysics, VehiclePhysicsConfig};
 use ppe_state::{Gear, VehicleEvent, VehicleFsm};
 use ppe_subsystems::{
-    BatteryManagementSystem, BmsConfig, MotorController, Subsystem, ThermalManagement,
+    BatteryManagementSystem, BmsConfig, EnerDConfig, EnerDReactor, MotorController, Subsystem,
+    ThermalManagement,
 };
 
 #[derive(Parser)]
@@ -43,6 +44,13 @@ struct Cli {
     /// Run headless (no TUI)
     #[arg(long, default_value_t = false)]
     headless: bool,
+}
+
+fn is_reactor_scenario(kind: ScenarioKind) -> bool {
+    matches!(
+        kind,
+        ScenarioKind::AccelSynchro | ScenarioKind::TurboDuel | ScenarioKind::ReactorStress
+    )
 }
 
 fn main() -> Result<()> {
@@ -82,6 +90,16 @@ fn main() -> Result<()> {
     let (mut thermal, thermal_handles) = ThermalManagement::new(thermal_node);
     thermal.init()?;
 
+    // Create Ener-D Reactor
+    let reactor_node = bus.connect(CanFilter::Exact(well_known::EMERGENCY_STOP), 128);
+    let (mut reactor, reactor_handles) = EnerDReactor::new(EnerDConfig::default(), reactor_node);
+    reactor.init()?;
+
+    // Auto-enable reactor for reactor scenarios
+    if is_reactor_scenario(scenario_kind) {
+        reactor.set_enabled(true);
+    }
+
     // Create OBD responder
     let obd_node = bus.connect(CanFilter::Exact(well_known::OBD_REQUEST), 64);
     let mut obd = ObdResponder::new(obd_node);
@@ -101,7 +119,16 @@ fn main() -> Result<()> {
         motor_throttle: motor_handles.throttle,
         coolant_temp: thermal_handles.coolant_temp,
         ambient_temp: thermal_handles.ambient_temp,
+        reactor_speed: Some(reactor_handles.vehicle_speed),
+        reactor_accel: Some(reactor_handles.vehicle_accel),
+        reactor_drag: Some(reactor_handles.vehicle_drag_force),
+        reactor_mass: Some(reactor_handles.vehicle_mass),
     };
+
+    // Enable reactor in physics when scenario is reactor-enabled
+    if is_reactor_scenario(scenario_kind) {
+        physics.set_reactor_enabled(true);
+    }
 
     // Create vehicle FSM
     let mut fsm = VehicleFsm::new();
@@ -129,6 +156,14 @@ fn main() -> Result<()> {
 
     let paused = Arc::new(AtomicBool::new(false));
     let paused_clone = paused.clone();
+
+    // Reactor controls
+    let reactor_toggle = Arc::new(AtomicBool::new(false));
+    let reactor_toggle_clone = reactor_toggle.clone();
+    let reactor_scram = Arc::new(AtomicBool::new(false));
+    let reactor_scram_clone = reactor_scram.clone();
+    let reactor_enabled = Arc::new(AtomicBool::new(is_reactor_scenario(scenario_kind)));
+    let reactor_enabled_clone = reactor_enabled.clone();
 
     let dash_clone = dash_state.clone();
 
@@ -166,11 +201,29 @@ fn main() -> Result<()> {
                 let _ = motor.tick(tick_duration);
                 let _ = thermal.tick(tick_duration);
 
+                // Handle reactor enable/disable toggle
+                if reactor_toggle_clone.swap(false, Ordering::Relaxed) {
+                    let was_enabled = reactor_enabled_clone.load(Ordering::Relaxed);
+                    reactor_enabled_clone.store(!was_enabled, Ordering::Relaxed);
+                    reactor.set_enabled(!was_enabled);
+                    physics.set_reactor_enabled(!was_enabled);
+                }
+                if reactor_scram_clone.swap(false, Ordering::Relaxed) {
+                    reactor.request_scram();
+                }
+
+                // Tick reactor
+                let _ = reactor.tick(tick_duration);
+
+                // Feed reactor power back into physics
+                physics.set_reactor_power(reactor.net_power_kw());
+
                 // Aggregate DTCs
                 let mut all_dtcs = Vec::new();
                 all_dtcs.extend(bms.active_dtcs());
                 all_dtcs.extend(motor.active_dtcs());
                 all_dtcs.extend(thermal.active_dtcs());
+                all_dtcs.extend(reactor.active_dtcs());
                 dtc_manager.update(all_dtcs);
 
                 // Update OBD responder
@@ -192,8 +245,8 @@ fn main() -> Result<()> {
 
                     ds.bms_state = bms.state();
                     ds.soc_pct = bms.soc().value();
-                    ds.pack_voltage = physics.speed_kmh(); // placeholder
-                    ds.pack_current = 0.0;
+                    ds.pack_voltage = physics.battery_voltage();
+                    ds.pack_current = physics.battery_current();
                     ds.pack_temperature = physics.coolant_temp();
 
                     ds.motor_state = motor.state();
@@ -211,6 +264,14 @@ fn main() -> Result<()> {
                     ds.power_kw = physics.power_kw();
 
                     ds.active_dtcs = dtc_manager.active().to_vec();
+
+                    // Ener-D Reactor
+                    ds.reactor_state = reactor.state();
+                    ds.reactor_spin_rate = reactor.spin_rate();
+                    ds.reactor_power_kw = reactor.net_power_kw();
+                    ds.reactor_containment_pct = reactor.containment();
+                    ds.reactor_plasma_temp = reactor.plasma_temp();
+                    ds.reactor_momentum_flux = reactor.momentum_flux();
 
                     // Drain CAN monitor
                     for frame in can_monitor.drain() {
@@ -292,6 +353,12 @@ fn main() -> Result<()> {
                         KeyCode::Char('d') | KeyCode::Char('D') => {
                             // Clear DTCs display
                             dash_state.lock().unwrap().active_dtcs.clear();
+                        }
+                        KeyCode::Char('r') | KeyCode::Char('R') => {
+                            reactor_toggle.store(true, Ordering::Relaxed);
+                        }
+                        KeyCode::Char('c') | KeyCode::Char('C') => {
+                            reactor_scram.store(true, Ordering::Relaxed);
                         }
                         _ => {}
                     }

@@ -66,6 +66,10 @@ unit_newtype!(Rpm, "RPM");
 unit_newtype!(Percent, "%");
 unit_newtype!(Power, "kW");
 unit_newtype!(Torque, "Nm");
+unit_newtype!(SpinRate, "rad/s");
+unit_newtype!(MomentumFlux, "N");
+unit_newtype!(Containment, "%");
+unit_newtype!(PlasmaTemp, "MK");
 
 #[cfg(test)]
 mod tests {

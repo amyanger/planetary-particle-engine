@@ -28,6 +28,14 @@ pub const VEHICLE_GEAR: CanId = CanId::new_unchecked(0x403);
 pub const EMERGENCY_STOP: CanId = CanId::new_unchecked(0x001);
 pub const HEARTBEAT: CanId = CanId::new_unchecked(0x002);
 
+// Ener-D Reactor CAN IDs (0x500-0x50F)
+pub const ENERD_STATUS: CanId = CanId::new_unchecked(0x500);
+pub const ENERD_SPIN_RATE: CanId = CanId::new_unchecked(0x501);
+pub const ENERD_POWER_OUTPUT: CanId = CanId::new_unchecked(0x502);
+pub const ENERD_CONTAINMENT: CanId = CanId::new_unchecked(0x503);
+pub const ENERD_PLASMA_TEMP: CanId = CanId::new_unchecked(0x504);
+pub const ENERD_MOMENTUM_FLUX: CanId = CanId::new_unchecked(0x505);
+
 // OBD-II CAN IDs
 pub const OBD_REQUEST: CanId = CanId::new_unchecked(0x7DF);
 pub const OBD_RESPONSE: CanId = CanId::new_unchecked(0x7E8);

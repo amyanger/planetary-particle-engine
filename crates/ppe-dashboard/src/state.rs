@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 use ppe_can::CanFrame;
 use ppe_core::Dtc;
 use ppe_sim::ScenarioKind;
-use ppe_state::{BmsState, Gear, MotorState, VehicleState};
+use ppe_state::{BmsState, EnerDState, Gear, MotorState, VehicleState};
 
 /// Shared state for the TUI dashboard, updated by the simulation loop.
 pub struct DashboardState {
@@ -44,6 +44,14 @@ pub struct DashboardState {
     pub can_log: VecDeque<CanFrame>,
     pub can_log_max: usize,
 
+    // Ener-D Reactor
+    pub reactor_state: EnerDState,
+    pub reactor_spin_rate: f64,
+    pub reactor_power_kw: f64,
+    pub reactor_containment_pct: f64,
+    pub reactor_plasma_temp: f64,
+    pub reactor_momentum_flux: f64,
+
     // Scenario
     pub current_scenario: ScenarioKind,
 }
@@ -77,6 +85,13 @@ impl DashboardState {
             power_kw: 0.0,
 
             active_dtcs: Vec::new(),
+
+            reactor_state: EnerDState::Dormant,
+            reactor_spin_rate: 0.0,
+            reactor_power_kw: 0.0,
+            reactor_containment_pct: 100.0,
+            reactor_plasma_temp: 0.0,
+            reactor_momentum_flux: 0.0,
 
             can_log: VecDeque::new(),
             can_log_max: 100,

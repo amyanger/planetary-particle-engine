@@ -11,6 +11,7 @@ pub enum ComponentId {
     Scheduler,
     Diagnostics,
     Physics,
+    EnerD,
 }
 
 impl fmt::Display for ComponentId {
@@ -23,6 +24,7 @@ impl fmt::Display for ComponentId {
             Self::Scheduler => write!(f, "SCHEDULER"),
             Self::Diagnostics => write!(f, "DIAGNOSTICS"),
             Self::Physics => write!(f, "PHYSICS"),
+            Self::EnerD => write!(f, "ENER-D"),
         }
     }
 }

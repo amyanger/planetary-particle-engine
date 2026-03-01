@@ -16,6 +16,10 @@ path = "bms_test.rs"
 name = "scheduler_test"
 path = "scheduler_test.rs"
 
+[[test]]
+name = "enerd_test"
+path = "enerd_test.rs"
+
 [dev-dependencies]
 ppe-core.workspace = true
 ppe-can.workspace = true
@@ -23,4 +27,5 @@ ppe-hal.workspace = true
 ppe-state.workspace = true
 ppe-subsystems.workspace = true
 ppe-scheduler.workspace = true
+ppe-sim.workspace = true
 tokio.workspace = true
